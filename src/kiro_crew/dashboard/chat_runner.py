@@ -20,6 +20,8 @@ from kiro_crew.acp.client import (
     AcpProcessDied,
     AcpPromptBusy,
     _is_safe_oauth_url,
+    advertised_model_ids,
+    model_is_unusable,
 )
 from kiro_crew.acp.types import (
     EVENT_AGENT_SWITCHED,
@@ -365,6 +367,45 @@ def _backfill_canonical_model(client: Any, provider: str) -> str:
     if provider != "claude_code" and _is_bedrock_profile_id(prov_model):
         return ""
     return model_registry.canonicalize_for_provider(prov_model, provider)
+
+
+def _pinned_model_withheld(client: Any, model: str, provider: str) -> bool:
+    """True when the live session cannot run the model this slot is pinned to.
+
+    ``providers.acp`` withholds an inherited/persisted model the account is not
+    entitled to and leaves the session on the backend default, so the turn
+    succeeds — but nothing told the user, and the composer chip plus the picker
+    went on reporting a model no turn would ever use (observed after a plan
+    downgrade: the chip still read ``claude-opus-5`` while every turn ran on
+    auto). This is the read side of that withhold, using the SAME predicate so
+    the two cannot disagree about what "usable" means.
+
+    The caller only REPORTS on a true result — it does not clear the pin. The
+    withhold already keeps the model off the wire and the frontend already
+    displays the effective model, so a stale pin is inert and recovers by itself
+    if entitlement returns.
+
+    Only the kiro/acp path is checked. ``slot.model`` is a bare dotted wire id
+    there — the same namespace ``session/new`` advertises — while claude_code
+    holds canonical keys against bare advertised ids, and comparing those two
+    namespaces would call every legitimate model unusable (see
+    :func:`model_is_unusable`'s namespace note). ``model_is_unusable`` itself
+    fails open on an empty advertised set, so a session that advertised nothing
+    (or a provider with no getter) leaves the pin alone: entitlement unknown is
+    not entitlement denied.
+    """
+    if not model or model == "auto" or provider == "claude_code":
+        return False
+    if getattr(client, "is_claude_backend", False):
+        return False
+    getter = getattr(client, "available_models", None)
+    if not callable(getter):
+        return False
+    try:
+        advertised = advertised_model_ids(getter())
+    except Exception:
+        return False
+    return model_is_unusable(model, advertised)
 
 
 def _context_usage_payload(slot_key: str, client: Any) -> dict[str, Any]:
@@ -2800,6 +2841,47 @@ async def _run_chat(
         # alias spelling) is left as-is.
         if not slot.model:
             slot.model = _backfill_canonical_model(client, cfg.agent.provider) or slot.model
+        elif (is_new or resumed) and _pinned_model_withheld(
+            client, slot.model, cfg.agent.provider
+        ):
+            # The session just advertised what this account can run, and the pin
+            # is not on the list — the spawn withheld it, so this session runs on
+            # the backend default.
+            #
+            # The pin is deliberately KEPT. Withholding (providers.acp) already
+            # guarantees it is never sent and `displayModel` already guarantees
+            # it is never shown as the running model, so a stale pin is inert —
+            # while clearing it would be a one-way delete of an explicit user
+            # setting, decided from ONE session's advertised list. Keeping it
+            # means a plan re-upgrade (or a transiently short advertised list)
+            # self-heals with no action from the user; clearing would force them
+            # to notice and re-pick. Inert-and-recoverable beats tidy.
+            #
+            # Gated on a fresh/resumed session so this reports once per spawn —
+            # the moment the withhold actually happens — rather than repeating on
+            # every turn of a warm session.
+            logger.warning(
+                "Slot %s is pinned to %s, which this account cannot run; "
+                "the session is on the backend default (pin kept for re-upgrade)",
+                slot.key,
+                slot.model,
+            )
+            # Say it in the transcript too, not only in the server log. Otherwise
+            # the chip silently reads Auto, the picker no longer lists the model,
+            # and there is no way to learn the account lost access to it.
+            #
+            # A persisted "notice" card rather than a transient activity line: the
+            # explanation has to survive a reload, because the state it explains
+            # does (the pin stays, and the chip keeps reading Auto). Soft info
+            # styling for the same reason the empty-response notices use it — a
+            # plan change is not a crash. slot.append persists AND broadcasts one
+            # chat_message, so it needs no companion broadcast_ws.
+            slot.append(
+                "notice",
+                f"{slot.model} is not available on this account — "
+                f"this session is running on Auto.",
+                "msg msg-info",
+            )
         agent_label = kiro_agent or slot.agent or "default"
         model_label = slot.model or "auto"
         if resumed:
