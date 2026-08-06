@@ -150,11 +150,7 @@ def get_active_namespaces(root: Path | None = None) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def pattern_id(title: str, scope: str) -> str:
-    # A content-derived dedup key over (title, scope), recomputed on every load
-    # rather than persisted, so the digest algorithm can change freely. SHA-256
-    # keeps this off the "broken hash" security lint even though the value is
-    # never a signature or credential.
-    return hashlib.sha256(f"{title.strip().lower()}|{scope}".encode()).hexdigest()[:16]
+    return hashlib.sha1(f"{title.strip().lower()}|{scope}".encode()).hexdigest()[:16]
 
 
 def render_pattern(p: dict) -> str:

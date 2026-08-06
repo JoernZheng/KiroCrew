@@ -49,8 +49,7 @@ def test_declared_capabilities_do_not_promise_files_without_a_media_path():
     """
     from kiro_crew.weixin.transport import WEIXIN_CAPABILITIES
 
-    assert WEIXIN_CAPABILITIES.files_inbound is False
-    assert WEIXIN_CAPABILITIES.files_outbound is False
+    assert WEIXIN_CAPABILITIES.files is False
 
 
 def test_headers_carry_required_ilink_fields():

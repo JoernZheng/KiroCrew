@@ -315,19 +315,15 @@ _REDACTION_SINKS: tuple[tuple[str, str, str], ...] = (
     (
         "Slack session mirror",
         "dashboard/chat_slack.py",
-        "Thread titles and the conversation history seeded into a newly linked "
-        "thread. Titles go through redact_and_truncate (redaction BEFORE "
-        "truncation, so a truncation boundary cannot split and hide a "
-        "credential); history goes through redact_via_context BEFORE mrkdwn "
-        "conversion, because to_slack_mrkdwn self-truncates at 39k and would "
-        "otherwise cut a credential into an unmatchable prefix.",
+        "Thread titles and mirrored message bodies posted to Slack, via "
+        "redact_and_truncate (redaction BEFORE truncation, so a truncation "
+        "boundary cannot split and hide a credential).",
     ),
     (
         "Configured-channel session mirror",
         "dashboard/chat_mirror.py",
         "Recent dashboard context posted while linking a configured non-Slack "
-        "destination, via redact_via_context before transport dispatch, then "
-        "chunked to the channel's own message limit rather than truncated.",
+        "destination, via redact_and_truncate before transport dispatch.",
     ),
     (
         "Slack Block Kit views",
@@ -649,6 +645,13 @@ NON_EGRESS_REDACTION_MODULES: frozenset[str] = frozenset(
         # Bundled dev-skill script: prints CI/review findings to a
         # developer terminal, not an agent-output egress path.
         "builtin_skills/kirocrew-dev/prepare-pr/scripts/pr_findings.py",
+        # Standalone prepare-pr skill scripts: output goes to the developer's
+        # local terminal (push_guard.py prints fetch diagnostics; preflight.py
+        # prints repo-state blockers).  Neither crosses a chat/dashboard egress
+        # boundary — the shared redact_credentials helper is a pure scrubber
+        # applied before printing, not an egress-sink boundary.
+        "builtin_skills/kirocrew-dev/prepare-pr/scripts/push_guard.py",
+        "builtin_skills/kirocrew-dev/prepare-pr/scripts/preflight.py",
         # Ops Mission Control provider-token redactor. ``secrets.py`` DEFINES
         # ``redact_tokens`` (the PagerDuty/Datadog token shapes) rather than
         # crossing a boundary with it — the same self-referential case as

@@ -69,20 +69,15 @@ describe('ChatInput continue affordance', () => {
     expect(onContinue).not.toHaveBeenCalled()
   })
 
-  it('keeps the sigil hint in the placeholder when nothing proves an interruption', () => {
-    // The default placeholder teaches `/command · @file · $skill` and is the only
-    // surface that does. Continue is offered on every idle slot with history, so
-    // overriding it unconditionally would delete that hint for every returning
-    // chat. The ▶ button plus its label carries the affordance instead.
+  it('explains the state in the placeholder, since an icon swap announces nothing', () => {
     renderWithProviders(<ChatInput {...defaultProps} continuable onContinue={vi.fn()} />)
-    expect(screen.getByPlaceholderText(/\/command/)).toBeInTheDocument()
-    expect(screen.queryByPlaceholderText(/interrupted/i)).toBeNull()
-    expect(screen.getByLabelText('Ask the agent to continue')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/carry on/i)).toBeInTheDocument()
   })
 
   it('names the interruption only when the transcript actually showed one', () => {
-    // A visibly-broken turn is rare and needs the explanation more than the hint,
-    // so this is the one case that overrides the placeholder.
+    // The copy split: Continue is offered on any idle slot, so the default
+    // wording must not assert a breakage. A force-quit leaves no evidence, and
+    // claiming "interrupted" there would be a guess dressed as a fact.
     renderWithProviders(
       <ChatInput {...defaultProps} continuable continueIsRecovery onContinue={vi.fn()} />,
     )
@@ -90,10 +85,16 @@ describe('ChatInput continue affordance', () => {
     expect(screen.getByLabelText('Continue the interrupted turn')).toBeInTheDocument()
   })
 
+  it('uses neutral wording when nothing proves an interruption', () => {
+    renderWithProviders(<ChatInput {...defaultProps} continuable onContinue={vi.fn()} />)
+    expect(screen.queryByPlaceholderText(/interrupted/i)).toBeNull()
+    expect(screen.getByLabelText('Carry on from here')).toBeInTheDocument()
+  })
+
   it('keeps the ordinary placeholder when the turn is not resumable', () => {
     renderWithProviders(<ChatInput {...defaultProps} />)
-    expect(screen.getByPlaceholderText(/\/command/)).toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/interrupted/i)).toBeNull()
+    expect(screen.queryByPlaceholderText(/carry on/i)).toBeNull()
   })
 
   it('does not offer Continue without a handler, even when flagged resumable', () => {

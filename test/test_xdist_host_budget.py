@@ -19,9 +19,8 @@ import subprocess
 import sys
 import textwrap
 
-import pytest
-
 import conftest as ct
+import pytest
 
 needs_symlinks = pytest.mark.skipif(
     os.name != "posix", reason="symlink creation needs privileges on Windows"
