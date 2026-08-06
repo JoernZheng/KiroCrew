@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 from kiro_crew.acp.runtime import _get_rss_tree_mb, _iter_descendant_pids
 from kiro_crew.dashboard.handlers_system import _get_static_system_info
 from kiro_crew.dashboard.state import NEW_SESSION_TITLE
+from kiro_crew.messaging.link import telemetry_channel_of
 from kiro_crew.security import redact_credentials, redact_exfiltration_urls
 from kiro_crew.session import BACKGROUND_KEY
 from kiro_crew.subagent import _CLK_TCK, _subtree_cpu_jiffies
@@ -237,6 +238,11 @@ class SessionMemorySampler:
                     "slot_key": named["slot_key"],
                     "untitled": named["untitled"],
                     "agent": row.get("agent"),
+                    # The grouping dimension for the Sessions table, resolved by
+                    # the same function the telemetry metrics use. Deriving it
+                    # from the key shape in the frontend instead would create a
+                    # second taxonomy that drifts from this one.
+                    "channel": telemetry_channel_of(key if isinstance(key, str) else None),
                     "pid": pid,
                     "owns_runtime": row.get("owns_runtime"),
                     "prompts": row.get("prompts"),

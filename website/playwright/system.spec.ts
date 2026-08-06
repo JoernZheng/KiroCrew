@@ -10,8 +10,7 @@ test.describe('System Page E2E Tests', () => {
 
   test('navigates to System page and displays system metrics', async ({ page }) => {
     // Should see memory heading and CPU metrics. `exact` is required: the name
-    // option matches a substring by default, and this page also carries the
-    // "Session & Task Memory" card, so a loose 'Memory' resolves to 2 headings.
+    // option matches a substring by default.
     await expect(
       page.getByRole('heading', { name: 'Memory', exact: true })
     ).toBeVisible({ timeout: 10000 })
@@ -22,7 +21,7 @@ test.describe('System Page E2E Tests', () => {
     // Renders unconditionally (it owns an empty state), so this holds even
     // when the offline stub backend reports no live sessions.
     await expect(
-      page.getByRole('heading', { name: 'Session & Task Memory' })
+      page.getByRole('heading', { name: 'Sessions', exact: true })
     ).toBeVisible({ timeout: 10000 })
     await expect(
       page.getByRole('columnheader', { name: 'Session / Task' })

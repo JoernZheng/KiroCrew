@@ -1053,6 +1053,7 @@ export const api = {
     sessions: {
       key: string; title: string; slot_key: string; untitled: boolean
       agent: string; pid: number | null; owns_runtime: boolean; prompts: number
+      channel: string
       rss_mb: number | null; procs: number | null; mcp: number | null
       cpu_cores: number | null; uptime_s: number | null
     }[]
